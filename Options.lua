@@ -352,15 +352,19 @@ local function CreateOptionsPanel()
 
     -- Duration text section
     y = CreateHeader(content, "Duration Text", y)
-    y = CreateFontDropdown(content, "Font", "durationFont", y)
     y = CreateSlider(content, "Font Size", "durationFontSize", 8, 48, 1, y)
 
     y = CreateSeparator(content, y)
 
     -- Stack count text section
     y = CreateHeader(content, "Stack Count Text", y)
-    y = CreateFontDropdown(content, "Font", "stackFont", y)
     y = CreateSlider(content, "Font Size", "stackFontSize", 8, 48, 1, y)
+
+    y = CreateSeparator(content, y)
+
+    -- Shared font section
+    y = CreateHeader(content, "Font", y)
+    y = CreateFontDropdown(content, "Font Family", "font", y)
 
     -- Reset button (bottom-left of the main frame, outside content area)
     local resetBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")

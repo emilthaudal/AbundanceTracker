@@ -45,9 +45,8 @@ local DEFAULTS = {
     posX             = 0,
     posY             = -200,
     iconSize         = 64,
-    durationFont     = "Fonts\\FRIZQT__.TTF",
+    font             = "Fonts\\FRIZQT__.TTF",
     durationFontSize = 18,
-    stackFont        = "Fonts\\FRIZQT__.TTF",
     stackFontSize    = 14,
     locked           = false,
 }
@@ -162,12 +161,11 @@ end
 
 local function ApplyFonts()
     if not mainFrame then return end
-    local dFont = DB("durationFont")     or DEFAULTS.durationFont
+    local font  = DB("font")             or DEFAULTS.font
     local dSize = DB("durationFontSize") or DEFAULTS.durationFontSize
-    local sFont = DB("stackFont")        or DEFAULTS.stackFont
     local sSize = DB("stackFontSize")    or DEFAULTS.stackFontSize
-    mainFrame.durationText:SetFont(dFont, dSize, "OUTLINE")
-    mainFrame.stackText:SetFont(sFont, sSize, "OUTLINE")
+    mainFrame.durationText:SetFont(font, dSize, "OUTLINE")
+    mainFrame.stackText:SetFont(font, sSize, "OUTLINE")
 end
 
 local function ApplySizeAndPosition()
