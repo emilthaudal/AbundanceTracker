@@ -17,8 +17,8 @@ local UIParent      = UIParent
 -- Constants
 -- ──────────────────────────────────────────────────────────────
 
-local PANEL_W  = 300
-local PANEL_H  = 510
+local PANEL_W  = 330
+local PANEL_H  = 550
 local PAD      = 14     -- outer padding / left margin for widgets
 local COL_W    = PANEL_W - PAD * 2   -- usable content width
 local ITEM_H   = 18     -- font dropdown row height
