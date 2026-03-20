@@ -4,13 +4,15 @@
 ## Author: emilthaudal
 ## Version: 0.1.0
 ## SavedVariablesPerCharacter: AbundanceTrackerDB
-## Dependencies: LibSharedMedia-3.0
-## X-Embeds: LibStub
+## OptionalDeps: LibSharedMedia-3.0
+## X-Embeds: LibStub, CallbackHandler-1.0, LibSharedMedia-3.0
 ## X-Curse-Project-ID: 1490814
 ## X-Wago-ID: n6VL0EGd
 
-# Libraries (embedded by packager)
+# Libraries (embedded)
 Libs/LibStub/LibStub.lua
+Libs/CallbackHandler-1.0/CallbackHandler-1.0.lua
+Libs/LibSharedMedia-3.0/LibSharedMedia-3.0.lua
 
 Core.lua
 Options.lua

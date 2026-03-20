@@ -36,8 +36,8 @@ SavedVariables/
 .token
 *.token
 
-# Libs populated by BigWigs packager at release time
-Libs/
+# Libs populated by BigWigs packager at release time (LibStub fetched via SVN external)
+Libs/LibStub/
 
 # Backup files
 *.bak
