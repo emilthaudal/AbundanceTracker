@@ -5,37 +5,40 @@
 -- Germination (talent) applies a second Rejuvenation-like HoT ("Rejuvenation (Germination)")
 -- on the same target. Both count toward Abundance stacks (+8% Regrowth crit each, cap 12).
 --
+-- Only active for Restoration Druids. Detects spec at login and on spec swap.
+--
 -- API: WoW Midnight 12.0.1 (Interface 120001)
---   Aura tracking: UNIT_AURA incremental diff + C_UnitAuras APIs
+--   Aura tracking: UNIT_AURA → ScanUnit (name-based, avoids secret value access)
 --   Scan filter: "HELPFUL PLAYER" to find player-cast buffs on friendly targets
 
 -- ──────────────────────────────────────────────────────────────
 -- Upvalues
 -- ──────────────────────────────────────────────────────────────
 
-local GetTime              = GetTime
-local UnitExists           = UnitExists
-local GetNumGroupMembers   = GetNumGroupMembers
-local IsInRaid             = IsInRaid
-local math_floor           = math.floor
-local string_format        = string.format
-local C_UnitAuras          = C_UnitAuras
-local C_Timer              = C_Timer
-local LibStub              = LibStub
+local GetTime                = GetTime
+local UnitExists             = UnitExists
+local UnitClass              = UnitClass
+local GetNumGroupMembers     = GetNumGroupMembers
+local IsInRaid               = IsInRaid
+local math_floor             = math.floor
+local string_format          = string.format
+local C_UnitAuras            = C_UnitAuras
+local C_Timer                = C_Timer
+local C_SpecializationInfo   = C_SpecializationInfo
+local LibStub                = LibStub
 
 -- ──────────────────────────────────────────────────────────────
 -- Constants
 -- ──────────────────────────────────────────────────────────────
 
-local ADDON_NAME            = "AbundanceTracker"
-local REJUV_SPELL_ID        = 774               -- Rejuvenation
-local REJUV_SPELL_NAME      = "Rejuvenation"
-local GERM_SPELL_ID         = 155777            -- Rejuvenation (Germination)
-local GERM_SPELL_NAME       = "Rejuvenation (Germination)"
-local TRACKED_IDS           = { [REJUV_SPELL_ID] = true, [GERM_SPELL_ID] = true }
-local MAX_STACKS            = 12                -- 12 × 8% = 96% Abundance cap
-local TICKER_RATE           = 0.1               -- seconds between display refreshes
-local AURA_FILTER           = "HELPFUL PLAYER"
+local ADDON_NAME             = "AbundanceTracker"
+local REJUV_SPELL_NAME       = "Rejuvenation"
+local GERM_SPELL_NAME        = "Rejuvenation (Germination)"
+local MAX_STACKS             = 12                -- 12 × 8% = 96% Abundance cap
+local TICKER_RATE            = 0.1               -- seconds between display refreshes
+local AURA_FILTER            = "HELPFUL PLAYER"
+local DRUID_CLASS_ID         = 11
+local RESTO_DRUID_SPEC_ID    = 105
 
 -- Defaults — merged into AbundanceTrackerDB at load if key is absent
 local DEFAULTS = {
@@ -61,7 +64,8 @@ local rejuvCache = {}
 
 local mainFrame  = nil
 local ticker     = nil
-local isReady    = false
+local isReady    = false   -- true once PLAYER_LOGIN has fired
+local isEnabled  = false   -- true only when player is Resto Druid and addon is running
 
 -- ──────────────────────────────────────────────────────────────
 -- Helpers
@@ -73,6 +77,18 @@ end
 
 local function SetDB(key, value)
     AbundanceTrackerDB[key] = value
+end
+
+---@return boolean
+local function IsRestoDruid()
+    local _, _, classId = UnitClass("player")
+    if classId ~= DRUID_CLASS_ID then return false end
+
+    local specIndex = C_SpecializationInfo.GetSpecialization()
+    if not specIndex then return false end
+
+    local specId = C_SpecializationInfo.GetSpecializationInfo(specIndex)
+    return specId == RESTO_DRUID_SPEC_ID
 end
 
 ---@param seconds number
@@ -104,7 +120,9 @@ end
 -- Aura cache management
 -- ──────────────────────────────────────────────────────────────
 
--- Full rescan of a single unit — rebuilds its entire sub-table
+-- Full rescan of a single unit — rebuilds its entire sub-table.
+-- Uses GetAuraDataBySpellName (name-based) to avoid secret spellId comparisons.
+-- auraInstanceID is documented NeverSecret and safe to use as a table key.
 local function ScanUnit(unit)
     if not UnitExists(unit) then
         rejuvCache[unit] = nil
@@ -113,14 +131,15 @@ local function ScanUnit(unit)
 
     local unitEntry = {}
 
-    -- Check both Rejuvenation and Rejuvenation (Germination)
+    -- Rejuvenation
     local aura1 = C_UnitAuras.GetAuraDataBySpellName(unit, REJUV_SPELL_NAME, AURA_FILTER)
-    if aura1 and aura1.spellId == REJUV_SPELL_ID then
+    if aura1 then
         unitEntry[aura1.auraInstanceID] = aura1.expirationTime
     end
 
+    -- Rejuvenation (Germination)
     local aura2 = C_UnitAuras.GetAuraDataBySpellName(unit, GERM_SPELL_NAME, AURA_FILTER)
-    if aura2 and aura2.spellId == GERM_SPELL_ID then
+    if aura2 then
         unitEntry[aura2.auraInstanceID] = aura2.expirationTime
     end
 
@@ -135,61 +154,6 @@ end
 local function ScanAllUnits()
     rejuvCache = {}
     IterateGroup(ScanUnit)
-end
-
--- Process incremental UNIT_AURA updateInfo for a single unit
-local function ProcessAuraUpdate(unit, info)
-    if not UnitExists(unit) then
-        rejuvCache[unit] = nil
-        return
-    end
-
-    if info.isFullUpdate then
-        ScanUnit(unit)
-        return
-    end
-
-    -- Ensure the per-unit sub-table exists for add/update paths
-    local unitEntry = rejuvCache[unit]
-
-    -- Newly added auras
-    if info.addedAuras then
-        for _, aura in ipairs(info.addedAuras) do
-            if TRACKED_IDS[aura.spellId] and aura.isFromPlayerOrPlayerPet then
-                if not unitEntry then
-                    unitEntry = {}
-                    rejuvCache[unit] = unitEntry
-                end
-                unitEntry[aura.auraInstanceID] = aura.expirationTime
-            end
-        end
-    end
-
-    -- Updated auras — re-query by instanceID for fresh expirationTime
-    if info.updatedAuraInstanceIDs and unitEntry then
-        for _, instanceID in ipairs(info.updatedAuraInstanceIDs) do
-            if unitEntry[instanceID] ~= nil then
-                local aura = C_UnitAuras.GetAuraDataByAuraInstanceID(unit, instanceID)
-                if aura then
-                    unitEntry[instanceID] = aura.expirationTime
-                else
-                    unitEntry[instanceID] = nil
-                end
-            end
-        end
-    end
-
-    -- Removed auras
-    if info.removedAuraInstanceIDs and unitEntry then
-        for _, instanceID in ipairs(info.removedAuraInstanceIDs) do
-            unitEntry[instanceID] = nil
-        end
-    end
-
-    -- Clean up empty unit entries
-    if unitEntry and not next(unitEntry) then
-        rejuvCache[unit] = nil
-    end
 end
 
 -- ──────────────────────────────────────────────────────────────
@@ -363,6 +327,41 @@ local function UpdateDisplay()
 end
 
 -- ──────────────────────────────────────────────────────────────
+-- Enable / disable lifecycle
+-- ──────────────────────────────────────────────────────────────
+
+local function EnableAddon()
+    if isEnabled then return end
+    isEnabled = true
+
+    CreateMainFrame()
+
+    if not ticker then
+        ticker = C_Timer.NewTicker(TICKER_RATE, function()
+            UpdateDisplay()
+        end)
+    end
+
+    ScanAllUnits()
+end
+
+local function DisableAddon()
+    if not isEnabled then return end
+    isEnabled = false
+
+    if ticker then
+        ticker:Cancel()
+        ticker = nil
+    end
+
+    rejuvCache = {}
+
+    if mainFrame then
+        mainFrame:Hide()
+    end
+end
+
+-- ──────────────────────────────────────────────────────────────
 -- Event handler
 -- ──────────────────────────────────────────────────────────────
 
@@ -382,27 +381,31 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
 
     elseif event == "PLAYER_LOGIN" then
         isReady = true
-        CreateMainFrame()
 
-        if not ticker then
-            ticker = C_Timer.NewTicker(TICKER_RATE, function()
-                UpdateDisplay()
-            end)
+        if IsRestoDruid() then
+            EnableAddon()
         end
 
-        ScanAllUnits()
+    elseif event == "PLAYER_SPECIALIZATION_CHANGED" then
+        local unit = ...
+        if unit ~= "player" then return end
+
+        if IsRestoDruid() then
+            EnableAddon()
+        else
+            DisableAddon()
+        end
 
     elseif event == "UNIT_AURA" then
-        if not isReady then return end
-        local unit, info = ...
-        if not info then
-            ScanUnit(unit)
-            return
-        end
-        ProcessAuraUpdate(unit, info)
+        if not isEnabled then return end
+        local unit = ...
+        -- Always do a full name-based scan — avoids all secret value access
+        -- (info.isFullUpdate, aura.spellId, aura.isFromPlayerOrPlayerPet are
+        -- all potentially secret in combat in WoW Midnight 12.0.1)
+        ScanUnit(unit)
 
     elseif event == "GROUP_ROSTER_UPDATE" or event == "PLAYER_ENTERING_WORLD" then
-        if not isReady then return end
+        if not isEnabled then return end
         ScanAllUnits()
         UpdateDisplay()
     end
@@ -410,6 +413,7 @@ end)
 
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
+eventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 eventFrame:RegisterEvent("UNIT_AURA")
 eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
