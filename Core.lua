@@ -397,6 +397,12 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
     elseif event == "UNIT_AURA" then
         if not isEnabled then return end
         local unit = ...
+        -- Only process canonical group unit tokens to avoid double-counting
+        -- when the same player appears as multiple aliases (e.g. "player" + "target").
+        -- A unit token is canonical if it starts with "player", "party", or "raid".
+        if unit ~= "player" and not unit:match("^party%d") and not unit:match("^raid%d") then
+            return
+        end
         -- Always do a full name-based scan — avoids all secret value access
         -- (info.isFullUpdate, aura.spellId, aura.isFromPlayerOrPlayerPet are
         -- all potentially secret in combat in WoW Midnight 12.0.1)
