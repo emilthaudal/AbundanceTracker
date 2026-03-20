@@ -2,7 +2,7 @@
 ## Title: AbundanceTracker
 ## Notes: Tracks Rejuvenation count and shortest duration for the Abundance talent (Resto Druid)
 ## Author: emilthaudal
-## Version: 1.0.0
+## Version: 0.1.0
 ## SavedVariablesPerCharacter: AbundanceTrackerDB
 ## OptionalDeps: LibSharedMedia-3.0
 ## X-Curse-Project-ID: 1490814
