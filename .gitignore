@@ -1,0 +1,56 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# IDE / Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# WoW Addon Development
+# SavedVariables (generated at runtime)
+SavedVariables/
+
+# Packager/Release files
+.release/
+*.zip
+
+# BigWigs packager
+.packager/
+
+# CurseForge/WowInterface upload tokens
+.env
+.token
+*.token
+
+# Libs populated by BigWigs packager at release time
+Libs/
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# Log files
+*.log
+
+# Local testing/notes
+notes.txt
+TODO.txt
+todo.txt
+*.local.lua
+
+.opencode/

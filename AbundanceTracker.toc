@@ -1,0 +1,14 @@
+## Interface: 120001
+## Title: AbundanceTracker
+## Notes: Tracks Rejuvenation count and shortest duration for the Abundance talent (Resto Druid)
+## Author: emilthaudal
+## Version: 1.0.0
+## SavedVariablesPerCharacter: AbundanceTrackerDB
+## OptionalDeps: LibSharedMedia-3.0
+
+# Libraries (embedded by packager)
+Libs/LibStub/LibStub.lua
+Libs/LibSharedMedia-3.0/lib.xml
+
+Core.lua
+Options.lua

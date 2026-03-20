@@ -1,0 +1,9 @@
+package-as: AbundanceTracker
+
+externals:
+  Libs/LibStub: https://repos.wowace.com/wow/libstub/trunk
+  Libs/LibSharedMedia-3.0: https://repos.wowace.com/wow/libsharedmedia-3-0/trunk/LibSharedMedia-3.0
+
+embedded-libraries:
+  - libstub
+  - libsharedmedia-3-0
