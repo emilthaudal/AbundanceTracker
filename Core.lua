@@ -282,13 +282,15 @@ local function UpdateDisplay()
     local minExp = nil
 
     for _, unitEntry in pairs(rejuvCache) do
-        for _, expTime in pairs(unitEntry) do
+        for instanceID, expTime in pairs(unitEntry) do
             local remaining = expTime - now
             if remaining > 0 then
                 count = count + 1
                 if not minExp or expTime < minExp then
                     minExp = expTime
                 end
+            else
+                unitEntry[instanceID] = nil  -- evict stale entry
             end
         end
     end
@@ -400,7 +402,11 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         -- Only process canonical group unit tokens to avoid double-counting
         -- when the same player appears as multiple aliases (e.g. "player" + "target").
         -- A unit token is canonical if it starts with "player", "party", or "raid".
-        if unit ~= "player" and not unit:match("^party%d") and not unit:match("^raid%d") then
+        -- In a raid, "player" and the player's raidN slot both fire UNIT_AURA.
+        -- Skip "player" when in raid to avoid double-counting the same auras.
+        if unit == "player" then
+            if IsInRaid() then return end
+        elseif not unit:match("^party%d") and not unit:match("^raid%d") then
             return
         end
         -- Always do a full name-based scan — avoids all secret value access
