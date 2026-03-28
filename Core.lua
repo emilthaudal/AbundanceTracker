@@ -120,7 +120,9 @@ end
 -- ──────────────────────────────────────────────────────────────
 
 -- Full rescan of a single unit — rebuilds its entire sub-table.
--- Uses GetAuraDataBySpellName (name-based) to avoid secret spellId comparisons.
+-- Iterates all helpful player aura slots so that both Rejuvenation and
+-- Rejuvenation (Germination) are captured regardless of how the name-based
+-- API handles Germination in instanced content (M+, etc.).
 -- auraInstanceID is documented NeverSecret and safe to use as a table key.
 local function ScanUnit(unit)
     if not UnitExists(unit) then
@@ -130,16 +132,14 @@ local function ScanUnit(unit)
 
     local unitEntry = {}
 
-    -- Rejuvenation
-    local aura1 = C_UnitAuras.GetAuraDataBySpellName(unit, REJUV_SPELL_NAME, AURA_FILTER)
-    if aura1 then
-        unitEntry[aura1.auraInstanceID] = aura1.expirationTime
-    end
-
-    -- Rejuvenation (Germination)
-    local aura2 = C_UnitAuras.GetAuraDataBySpellName(unit, GERM_SPELL_NAME, AURA_FILTER)
-    if aura2 then
-        unitEntry[aura2.auraInstanceID] = aura2.expirationTime
+    local slots = C_UnitAuras.GetAuraSlots(unit, AURA_FILTER)
+    if slots then
+        for _, slot in ipairs(slots) do
+            local aura = C_UnitAuras.GetAuraDataBySlot(unit, slot)
+            if aura and (aura.name == REJUV_SPELL_NAME or aura.name == GERM_SPELL_NAME) then
+                unitEntry[aura.auraInstanceID] = aura.expirationTime
+            end
+        end
     end
 
     -- Only store an entry for this unit if we found at least one tracked aura
